@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDailyEvents } from '@/composables/useDB'
+import { showToast } from 'vant'
 import EmptyState from '@/components/EmptyState.vue'
 import dayjs from 'dayjs'
 
@@ -77,11 +78,16 @@ function openEdit(event: any) {
 }
 
 async function submit() {
-  if (!form.value.title.trim()) return
+  if (!form.value.title.trim()) {
+    showToast('请输入标题')
+    return
+  }
   if (editingEvent.value) {
     await updateEvent(editingEvent.value.id!, form.value)
+    showToast('已保存')
   } else {
     await addEvent(form.value)
+    showToast('已添加')
   }
   showForm.value = false
   loadEvents()
@@ -154,7 +160,7 @@ onMounted(() => {
       </div>
 
       <!-- 新增/编辑弹窗 -->
-      <van-popup v-model:show="showForm" position="bottom" round :style="{ padding: '20px' }">
+      <van-popup v-model:show="showForm" position="bottom" round :style="{ padding: '20px', maxHeight: '85vh', overflow: 'auto', paddingBottom: '40px' }">
         <h3 style="margin-bottom: 16px; font-size: 18px;">{{ editingEvent ? '编辑事件' : '新增事件' }}</h3>
         <van-field v-model="form.date" label="日期" placeholder="YYYY-MM-DD" />
         <van-field v-model="form.title" label="标题" placeholder="事件标题" />
@@ -187,9 +193,11 @@ onMounted(() => {
           </div>
         </div>
 
-        <van-button type="primary" block round style="margin-top: 16px;" @click="submit">
-          {{ editingEvent ? '保存修改' : '确认添加' }}
-        </van-button>
+        <div style="padding: 12px 0 20px;">
+          <van-button type="primary" block round size="large" @click="submit">
+            {{ editingEvent ? '保存修改' : '确认添加' }}
+          </van-button>
+        </div>
       </van-popup>
     </div>
   </div>
