@@ -1,1 +1,0 @@
-import{Ht as e,en as t}from"./index-l9qYpxFz.js";function n(){let n=t([]),r=[];return e(()=>{n.value=[]}),[n,e=>(r[e]||(r[e]=t=>{n.value[e]=t}),r[e])]}export{n as t};
