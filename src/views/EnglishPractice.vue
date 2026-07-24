@@ -424,11 +424,15 @@ onUnmounted(() => {
 
 <style scoped>
 .english-detail-page {
-  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   background: #fff;
-  padding-bottom: 50px;
+  overflow: hidden;
 }
 
 .top-bar {
@@ -456,6 +460,7 @@ onUnmounted(() => {
 .scroll-area {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 16px;
 }
 

@@ -67,10 +67,15 @@ function goDetail(id: number) {
 
 <style scoped>
 .english-list-page {
-  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   background: #f5f7fa;
+  overflow: hidden;
 }
 
 .top-bar {
@@ -93,6 +98,7 @@ function goDetail(id: number) {
 .scroll-area {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 12px 16px 80px;
 }
 
