@@ -428,6 +428,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: #fff;
+  padding-bottom: 50px;
 }
 
 .top-bar {
@@ -584,13 +585,14 @@ onUnmounted(() => {
 /* 底部播放器 */
 .player-bar {
   position: fixed;
-  bottom: 0;
+  bottom: 50px;
   left: 0;
   right: 0;
   background: #fff;
   border-top: 1px solid #e8e8e8;
-  padding: 10px 16px 20px;
+  padding: 10px 16px 12px;
   z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
 }
 .rate-control {
   display: flex;

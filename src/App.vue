@@ -9,7 +9,7 @@ const active = ref(0)
 
 const tabs = [
   { path: '/life', icon: 'home-o', label: '生活' },
-  { path: '/work', icon: 'briefcase-o', label: '工作' },
+  { path: '/work', icon: 'notes-o', label: '工作' },
   { path: '/chenchen', icon: 'flower-o', label: '辰辰' },
 ]
 
