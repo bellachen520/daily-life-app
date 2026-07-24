@@ -272,16 +272,16 @@ onUnmounted(() => {
   <div class="english-detail-page">
     <!-- 顶部栏 -->
     <div class="top-bar">
-      <div class="back-btn" @click="router.push('/life/english')">
+      <div class="back-btn" @click="router.push('/life')">
         <van-icon name="arrow-left" size="16" />
-        <span>返回文章列表</span>
+        <span>返回生活</span>
       </div>
       <a
         class="bbc-link"
         href="https://www.bbc.co.uk/learningenglish/english/features/6-minute-english"
         target="_blank"
       >
-        BBC 随身英语（官网版）↗
+        BBC 官网 ↗
       </a>
     </div>
 
@@ -358,7 +358,7 @@ onUnmounted(() => {
       </div>
 
       <!-- 底部占位 -->
-      <div style="height: 180px"></div>
+      <div style="height: 220px"></div>
     </div>
 
     <!-- 底部播放器 -->

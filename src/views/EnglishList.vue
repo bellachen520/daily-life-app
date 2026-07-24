@@ -93,7 +93,7 @@ function goDetail(id: number) {
 .scroll-area {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px 24px;
+  padding: 12px 16px 80px;
 }
 
 .intro-card {
