@@ -5,6 +5,7 @@ import { VantResolver } from '@vant/auto-import-resolver'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  base: '/daily-life-app/',
   plugins: [
     vue(),
     Components({
