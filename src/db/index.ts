@@ -128,6 +128,18 @@ class DailyLifeDB extends Dexie {
       growthRecords: '++id, date',
       appMeta: 'key',
     })
+
+    this.version(2).stores({
+      readingCheckins: '++id, category, checkinDate, [category+checkinDate]',
+      dailyEvents: '++id, date',
+      englishProgress: '++id, articleId, date',
+      todos: '++id, completed, priority, dueDate, order',
+      customers: '++id, name, status',
+      customerFollowUps: '++id, customerId, date',
+      chenchenCheckins: '++id, date, type, [type+date]',
+      growthRecords: '++id, date',
+      appMeta: 'key',
+    })
   }
 }
 

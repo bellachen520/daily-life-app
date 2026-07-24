@@ -7,24 +7,28 @@
 
     <div class="scroll-area">
       <!-- 英语学习 -->
-      <div class="card" @click="$router.push('/chenchen/english')">
+      <div class="card" @click="onEnglishCheckin">
         <div class="card-header">
           <span class="card-icon">🔤</span>
           <span class="card-title">英语学习</span>
           <span class="streak" v-if="englishStreak > 0">🔥 {{ englishStreak }}天</span>
+          <span class="checkin-tag" v-if="englishDone">✅ 已打卡</span>
+          <span class="checkin-tag pending" v-else>点击打卡</span>
           <van-icon name="arrow" color="#999" />
         </div>
         <div class="card-body">
-          每日英语学��打卡，培养语感
+          每日英语学习打卡，培养语感
         </div>
       </div>
 
       <!-- 阅读 -->
-      <div class="card" @click="$router.push('/chenchen/reading')">
+      <div class="card" @click="onReadingCheckin">
         <div class="card-header">
           <span class="card-icon">📖</span>
           <span class="card-title">阅读</span>
           <span class="streak" v-if="readingStreak > 0">🔥 {{ readingStreak }}天</span>
+          <span class="checkin-tag" v-if="readingDone">✅ 已打卡</span>
+          <span class="checkin-tag pending" v-else>点击打卡</span>
           <van-icon name="arrow" color="#999" />
         </div>
         <div class="card-body">
@@ -68,20 +72,122 @@
         </div>
       </div>
     </div>
+
+    <!-- 正能量弹窗 -->
+    <van-popup
+      v-model:show="showQuote"
+      position="center"
+      round
+      closeable
+      :style="{ width: '80%', padding: '32px 24px 24px', textAlign: 'center' }"
+    >
+      <div class="quote-popup">
+        <div class="quote-icon">🎉</div>
+        <div class="quote-title">打卡成功！</div>
+        <div class="quote-content">{{ currentQuote }}</div>
+        <van-button
+          type="primary"
+          round
+          block
+          style="margin-top: 20px;"
+          @click="showQuote = false"
+        >
+          继续加油 💪
+        </van-button>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useChenchenCheckins, useGrowthRecords } from '@/composables/useDB'
 import { evaluateGrowth, getAgeStandard } from '@/db/growthStandards'
+import { getRandomQuote } from '@/db/quotes'
+import dayjs from 'dayjs'
 
-const { getStreak } = useChenchenCheckins()
+const router = useRouter()
+const { getByDate, getStreak, addCheckin } = useChenchenCheckins()
 const { getAll } = useGrowthRecords()
+
+const today = dayjs().format('YYYY-MM-DD')
 
 const englishStreak = ref(0)
 const readingStreak = ref(0)
 const growthRecords = ref<any[]>([])
+
+// 正能量弹窗
+const showQuote = ref(false)
+const currentQuote = ref('')
+
+// 今日打卡状态
+const todayEnglish = ref<any[]>([])
+const todayReading = ref<any[]>([])
+const englishDone = computed(() => todayEnglish.value.length > 0)
+const readingDone = computed(() => todayReading.value.length > 0)
+
+function showRandomQuote() {
+  currentQuote.value = getRandomQuote()
+  showQuote.value = true
+}
+
+// 英语打卡
+async function onEnglishCheckin() {
+  if (englishDone.value) {
+    router.push('/chenchen/english')
+    return
+  }
+  try {
+    await addCheckin({
+      type: 'english',
+      date: today,
+      duration: 30,
+      content: '每日英语学习打卡',
+      notes: '快速打卡',
+    })
+    await loadCheckins()
+    showRandomQuote()
+  } catch (e: any) {
+    // 今天已打卡
+    if (e.message?.includes('已经打过卡')) {
+      router.push('/chenchen/english')
+    }
+  }
+}
+
+// 阅读打卡
+async function onReadingCheckin() {
+  if (readingDone.value) {
+    router.push('/chenchen/reading')
+    return
+  }
+  try {
+    await addCheckin({
+      type: 'reading',
+      date: today,
+      duration: 20,
+      content: '每日阅读打卡',
+      notes: '快速打卡',
+    })
+    await loadCheckins()
+    showRandomQuote()
+  } catch (e: any) {
+    if (e.message?.includes('已经打过卡')) {
+      router.push('/chenchen/reading')
+    }
+  }
+}
+
+async function loadCheckins() {
+  todayEnglish.value = await getByDate(today)
+  const engRecords = todayEnglish.value.filter(r => r.type === 'english')
+  const readRecords = todayEnglish.value.filter(r => r.type === 'reading')
+  todayEnglish.value = engRecords
+  todayReading.value = readRecords
+  englishStreak.value = await getStreak('english')
+  readingStreak.value = await getStreak('reading')
+}
 
 const latestGrowth = computed(() => {
   if (growthRecords.value.length === 0) return null
@@ -115,8 +221,7 @@ const growthSummary = computed(() => {
 })
 
 onMounted(async () => {
-  englishStreak.value = await getStreak('english')
-  readingStreak.value = await getStreak('reading')
+  await loadCheckins()
   growthRecords.value = await getAll()
 })
 </script>
@@ -144,7 +249,8 @@ onMounted(async () => {
 .scroll-area {
   flex: 1;
   overflow-y: auto;
-  padding: 0 16px 16px;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px 80px;
 }
 
 .card {
@@ -153,6 +259,11 @@ onMounted(async () => {
   padding: 16px;
   margin-top: 12px;
   cursor: pointer;
+  transition: all 0.15s;
+}
+.card:active {
+  transform: scale(0.97);
+  opacity: 0.9;
 }
 .card-header {
   display: flex;
@@ -169,6 +280,16 @@ onMounted(async () => {
   font-size: 13px;
   color: #ff976a;
   font-weight: 500;
+}
+.checkin-tag {
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.checkin-tag.pending {
+  background: #ff8c69;
+  color: #fff;
 }
 .card-body {
   margin-top: 8px;
@@ -212,5 +333,29 @@ onMounted(async () => {
   color: #ccc;
   text-align: center;
   padding: 8px 0;
+}
+
+/* 正能量弹窗 */
+.quote-popup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.quote-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.quote-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 12px;
+}
+.quote-content {
+  font-size: 15px;
+  color: #666;
+  line-height: 1.7;
+  padding: 0 8px;
 }
 </style>

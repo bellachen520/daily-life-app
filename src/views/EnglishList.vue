@@ -76,6 +76,8 @@ function goDetail(id: number) {
   flex-direction: column;
   background: #f5f7fa;
   overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
 }
 
 .top-bar {
@@ -84,6 +86,7 @@ function goDetail(id: number) {
   padding: 12px 16px;
   background: #fff;
   gap: 12px;
+  flex-shrink: 0;
 }
 .page-title {
   flex: 1;
@@ -99,7 +102,10 @@ function goDetail(id: number) {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 12px 16px 80px;
+  min-height: 0;
 }
 
 .intro-card {

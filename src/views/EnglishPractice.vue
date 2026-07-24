@@ -433,6 +433,8 @@ onUnmounted(() => {
   flex-direction: column;
   background: #fff;
   overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
 }
 
 .top-bar {
@@ -442,6 +444,7 @@ onUnmounted(() => {
   padding: 10px 16px;
   background: #fff;
   border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
 }
 .back-btn {
   display: flex;
@@ -461,7 +464,10 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 16px;
+  min-height: 0;
 }
 
 .article-title-section {
