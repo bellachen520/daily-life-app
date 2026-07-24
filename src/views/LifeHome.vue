@@ -3,9 +3,11 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useReadingCheckins, useDailyEvents, useEnglishProgress } from '@/composables/useDB'
 import { bbcEpisodes } from '@/db/bbc'
+import { getRandomQuote } from '@/db/quotes'
 import BBCPlayer from '@/components/BBCPlayer.vue'
 import CheckinCard from '@/components/CheckinCard.vue'
 import StreakBadge from '@/components/StreakBadge.vue'
+import { showToast } from 'vant'
 import dayjs from 'dayjs'
 import dayOfYear from 'dayjs/plugin/dayOfYear'
 dayjs.extend(dayOfYear)
@@ -17,6 +19,15 @@ const engProgress = useEnglishProgress()
 
 const today = dayjs().format('YYYY-MM-DD')
 const todayStr = dayjs().format('M月D日 dddd')
+
+// 正能量弹窗
+const showQuote = ref(false)
+const currentQuote = ref('')
+
+function showRandomQuote() {
+  currentQuote.value = getRandomQuote()
+  showQuote.value = true
+}
 
 // 阅读打卡状态
 const todayReading = ref<any[]>([])
@@ -49,6 +60,39 @@ const englishDone = computed(() => !!todayEnglish.value?.completed)
 onMounted(async () => {
   await Promise.all([loadReading(), loadEnglish(), loadEvents()])
 })
+
+// 阅读打卡：点击卡片直接打卡
+async function onReadingCheckin() {
+  if (readingDone.value) {
+    // 已打卡，跳转到详情页
+    router.push('/life/reading')
+    return
+  }
+  // 直接打卡
+  await reading.addCheckin({
+    bookTitle: '每日阅读打卡',
+    pagesRead: 10,
+    duration: 30,
+    notes: '快速打卡',
+    checkinDate: today,
+    category: 'personal',
+  })
+  await loadReading()
+  showRandomQuote()
+}
+
+// 英语打卡：点击卡片直接打卡
+async function onEnglishCheckin() {
+  if (englishDone.value) {
+    // 已打卡，跳转到英语列表
+    router.push('/life/english')
+    return
+  }
+  // 直接打卡
+  await engProgress.markCompleted(todayArticle.value.id, 0)
+  await loadEnglish()
+  showRandomQuote()
+}
 
 function goReading() {
   router.push('/life/reading')
@@ -89,7 +133,7 @@ function goCalendar() {
           label="阅读打卡"
           :streak="readingStreak"
           color="var(--color-life)"
-          @click="goReading"
+          @click="onReadingCheckin"
         />
         <CheckinCard
           :completed="englishDone"
@@ -97,7 +141,7 @@ function goCalendar() {
           label="英语跟练"
           :streak="0"
           color="var(--color-primary)"
-          @click="goEnglish"
+          @click="onEnglishCheckin"
         />
       </div>
     </div>
@@ -151,6 +195,30 @@ function goCalendar() {
         </div>
       </div>
     </div>
+
+    <!-- 正能量弹窗 -->
+    <van-popup
+      v-model:show="showQuote"
+      position="center"
+      round
+      closeable
+      :style="{ width: '80%', padding: '32px 24px 24px', textAlign: 'center' }"
+    >
+      <div class="quote-popup">
+        <div class="quote-icon">🎉</div>
+        <div class="quote-title">打卡成功！</div>
+        <div class="quote-content">{{ currentQuote }}</div>
+        <van-button
+          type="primary"
+          round
+          block
+          style="margin-top: 20px;"
+          @click="showQuote = false"
+        >
+          继续加油 💪
+        </van-button>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -338,5 +406,29 @@ function goCalendar() {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* 正能量弹窗 */
+.quote-popup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.quote-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.quote-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 12px;
+}
+.quote-content {
+  font-size: 15px;
+  color: #666;
+  line-height: 1.7;
+  padding: 0 8px;
 }
 </style>

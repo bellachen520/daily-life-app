@@ -19,7 +19,7 @@ defineProps<{
     </div>
     <div class="checkin-status">
       <span v-if="completed" class="status-done" :style="{ color: color || 'var(--color-success)' }">已完成</span>
-      <span v-else class="status-pending">待打卡</span>
+      <span v-else class="status-pending">点击打卡</span>
     </div>
   </div>
 </template>
@@ -34,6 +34,12 @@ defineProps<{
   border-radius: var(--radius-md);
   border: 2px solid var(--color-border);
   transition: all 0.3s;
+  cursor: pointer;
+}
+
+.checkin-card:active {
+  transform: scale(0.97);
+  opacity: 0.9;
 }
 
 .checkin-card.completed {
@@ -80,6 +86,10 @@ defineProps<{
 
 .status-pending {
   font-size: var(--font-size-sm);
-  color: var(--color-text-light);
+  color: #fff;
+  background: var(--color-primary);
+  padding: 4px 12px;
+  border-radius: var(--radius-round);
+  font-weight: 500;
 }
 </style>
