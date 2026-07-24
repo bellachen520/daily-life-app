@@ -8,9 +8,9 @@ const router = useRouter()
 const active = ref(0)
 
 const tabs = [
-  { path: '/life', icon: 'home-o', label: '生活' },
-  { path: '/work', icon: 'notes-o', label: '工作' },
-  { path: '/chenchen', icon: 'flower-o', label: '辰辰' },
+  { path: '/life', emoji: '🏠', label: '生活' },
+  { path: '/work', emoji: '💼', label: '工作' },
+  { path: '/chenchen', emoji: '🌸', label: '辰辰' },
 ]
 
 watch(() => route.path, (path) => {
@@ -42,9 +42,9 @@ function onTabChange(index: number) {
       <van-tabbar-item
         v-for="(tab, index) in tabs"
         :key="index"
-        :icon="tab.icon"
       >
-        {{ tab.label }}
+        <span class="tab-emoji">{{ tab.emoji }}</span>
+        <span class="tab-label">{{ tab.label }}</span>
       </van-tabbar-item>
     </van-tabbar>
   </div>
@@ -56,5 +56,14 @@ function onTabChange(index: number) {
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
+}
+.tab-emoji {
+  display: block;
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.tab-label {
+  font-size: 12px;
 }
 </style>
