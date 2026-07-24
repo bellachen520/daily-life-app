@@ -421,16 +421,19 @@ onUnmounted(() => {
 
 <style scoped>
 .english-detail-page {
-  min-height: 100vh;
-  min-height: 100dvh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
   background: #fff;
-  padding-bottom: 160px;
+  overflow: hidden;
 }
 
 .top-bar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -453,7 +456,12 @@ onUnmounted(() => {
 }
 
 .scroll-area {
-  padding: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px 16px 180px;
 }
 
 .article-title-section {

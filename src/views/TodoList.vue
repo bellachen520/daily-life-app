@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTodos } from '@/composables/useDB'
+import { showToast } from 'vant'
 import EmptyState from '@/components/EmptyState.vue'
 
 const router = useRouter()
@@ -47,15 +48,20 @@ function openEdit(todo: any) {
 }
 
 async function submit() {
-  if (!form.value.title.trim()) return
+  if (!form.value.title.trim()) {
+    showToast('请输入待办标题')
+    return
+  }
   const data = {
     ...form.value,
     dueDate: form.value.dueDate || null,
   }
   if (editingTodo.value) {
     await updateTodo(editingTodo.value.id!, data)
+    showToast('修改成功')
   } else {
     await addTodo(data)
+    showToast('添加成功')
   }
   showForm.value = false
   load()
@@ -128,7 +134,7 @@ onMounted(load)
     </div>
 
     <!-- 新增/编辑弹窗 -->
-    <van-popup v-model:show="showForm" position="bottom" round :style="{ padding: '20px' }">
+    <van-popup v-model:show="showForm" position="bottom" round :style="{ padding: '20px', maxHeight: '85vh', overflow: 'auto', paddingBottom: '40px' }">
       <h3 style="margin-bottom: 16px; font-size: 18px;">{{ editingTodo ? '编辑待办' : '新增待办' }}</h3>
       <van-field v-model="form.title" label="标题" placeholder="待办事项" />
       <van-field v-model="form.description" label="描述" type="textarea" rows="2" placeholder="详细描述（可选）" />
@@ -142,9 +148,11 @@ onMounted(load)
         </template>
       </van-field>
       <van-field v-model="form.dueDate" label="截止日期" placeholder="YYYY-MM-DD（可选）" />
-      <van-button type="primary" block round style="margin-top: 16px;" @click="submit">
-        {{ editingTodo ? '保存修改' : '确认添加' }}
-      </van-button>
+      <div style="padding: 16px 0 8px;">
+        <van-button type="primary" block round @click="submit">
+          {{ editingTodo ? '保存修改' : '确认添加' }}
+        </van-button>
+      </div>
     </van-popup>
   </div>
 </template>
