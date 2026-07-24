@@ -24,7 +24,12 @@ const router = createRouter({
     },
     {
       path: '/life/english',
-      name: 'life-english',
+      name: 'life-english-list',
+      component: () => import('@/views/EnglishList.vue'),
+    },
+    {
+      path: '/life/english/:id',
+      name: 'life-english-detail',
       component: () => import('@/views/EnglishPractice.vue'),
     },
     {

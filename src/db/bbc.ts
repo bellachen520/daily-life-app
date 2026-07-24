@@ -5,6 +5,9 @@ export interface BBCEpisode {
   sentences: { en: string; zh: string }[]
   vocabulary: { word: string; meaning: string }[]
   difficulty: 'easy' | 'medium' | 'hard'
+  wordCount: number
+  duration: string
+  vocabLevel: number
 }
 
 export const bbcEpisodes: BBCEpisode[] = [
@@ -13,6 +16,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'Why do we feel lonely?',
     titleZh: '我们为什么会感到孤独？',
     difficulty: 'medium',
+    wordCount: 342,
+    duration: '2:18',
+    vocabLevel: 3200,
     sentences: [
       { en: 'Hello and welcome to 6 Minute English.', zh: '大家好，欢迎来到六分钟英语。' },
       { en: "I'm Neil, and with me is Sam.", zh: '我是尼尔，和我一起的是萨姆。' },
@@ -40,6 +46,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'Is the past a foreign country?',
     titleZh: '过去是另一个国度吗？',
     difficulty: 'medium',
+    wordCount: 356,
+    duration: '2:28',
+    vocabLevel: 3400,
     sentences: [
       { en: 'Welcome to 6 Minute English, I\'m Neil.', zh: '欢迎来到六分钟英语，我是尼尔。' },
       { en: 'And I\'m Rob.', zh: '我是罗布。' },
@@ -67,6 +76,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'The future of food',
     titleZh: '食物的未来',
     difficulty: 'easy',
+    wordCount: 365,
+    duration: '2:30',
+    vocabLevel: 3500,
     sentences: [
       { en: 'Hello and welcome to 6 Minute English.', zh: '大家好，欢迎来到六分钟英语。' },
       { en: 'I\'m Dan, and with me is Catherine.', zh: '我是丹，和我一起的是凯瑟琳。' },
@@ -94,6 +106,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'Why we dream',
     titleZh: '我们为什么会做梦？',
     difficulty: 'medium',
+    wordCount: 388,
+    duration: '2:42',
+    vocabLevel: 3600,
     sentences: [
       { en: 'Welcome to 6 Minute English, I\'m Neil.', zh: '欢迎来到六分钟英语，我是尼尔。' },
       { en: 'And I\'m Georgina.', zh: '我是乔治娜。' },
@@ -121,6 +136,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'The rise of remote work',
     titleZh: '远程办公的兴起',
     difficulty: 'easy',
+    wordCount: 374,
+    duration: '2:36',
+    vocabLevel: 3800,
     sentences: [
       { en: 'Hello and welcome to 6 Minute English.', zh: '大家好，欢迎来到六分钟英语。' },
       { en: 'I\'m Sam, and with me is Rob.', zh: '我是萨姆，和我一起的是罗布。' },
@@ -148,6 +166,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'The secret to happiness',
     titleZh: '幸福的秘诀',
     difficulty: 'easy',
+    wordCount: 356,
+    duration: '2:28',
+    vocabLevel: 3400,
     sentences: [
       { en: 'Welcome to 6 Minute English, I\'m Neil.', zh: '欢迎来到六分钟英语，我是尼尔。' },
       { en: 'And I\'m Catherine.', zh: '我是凯瑟琳。' },
@@ -175,6 +196,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'Learning a new language',
     titleZh: '学习一门新语言',
     difficulty: 'medium',
+    wordCount: 365,
+    duration: '2:30',
+    vocabLevel: 3500,
     sentences: [
       { en: 'Hello and welcome to 6 Minute English.', zh: '大家好，欢迎来到六分钟英语。' },
       { en: 'I\'m Rob, and with me is Finn.', zh: '我是罗布，和我一起的是芬恩。' },
@@ -202,6 +226,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'Technology and laziness',
     titleZh: '科技与懒惰',
     difficulty: 'easy',
+    wordCount: 342,
+    duration: '2:18',
+    vocabLevel: 3200,
     sentences: [
       { en: 'Welcome to 6 Minute English, I\'m Dan.', zh: '欢迎来到六分钟英语，我是丹。' },
       { en: 'And I\'m Alice.', zh: '我是爱丽丝。' },
@@ -229,6 +256,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'The power of music',
     titleZh: '音乐的力量',
     difficulty: 'easy',
+    wordCount: 374,
+    duration: '2:36',
+    vocabLevel: 3800,
     sentences: [
       { en: 'Hello and welcome to 6 Minute English.', zh: '大家好，欢迎来到六分钟英语。' },
       { en: 'I\'m Neil, and with me is Sam.', zh: '我是尼尔，和我一起的是萨姆。' },
@@ -256,6 +286,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'Climate change and you',
     titleZh: '气候变化与你',
     difficulty: 'medium',
+    wordCount: 388,
+    duration: '2:42',
+    vocabLevel: 3600,
     sentences: [
       { en: 'Welcome to 6 Minute English, I\'m Rob.', zh: '欢迎来到六分钟英语，我是罗布。' },
       { en: 'And I\'m Georgina.', zh: '我是乔治娜。' },
@@ -283,6 +316,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'The art of conversation',
     titleZh: '对话的艺术',
     difficulty: 'easy',
+    wordCount: 356,
+    duration: '2:28',
+    vocabLevel: 3400,
     sentences: [
       { en: 'Hello and welcome to 6 Minute English.', zh: '大家好，欢迎来到六分钟英语。' },
       { en: 'I\'m Sam, and with me is Dan.', zh: '我是萨姆，和我一起的是丹。' },
@@ -310,6 +346,9 @@ export const bbcEpisodes: BBCEpisode[] = [
     title: 'The benefits of reading',
     titleZh: '阅读的好处',
     difficulty: 'easy',
+    wordCount: 365,
+    duration: '2:30',
+    vocabLevel: 3500,
     sentences: [
       { en: 'Welcome to 6 Minute English, I\'m Neil.', zh: '欢迎来到六分钟英语，我是尼尔。' },
       { en: 'And I\'m Catherine.', zh: '我是凯瑟琳。' },

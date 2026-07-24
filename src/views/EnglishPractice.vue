@@ -1,146 +1,124 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useEnglishProgress } from '@/composables/useDB'
-import { bbcEpisodes, type BBCEpisode } from '@/db/bbc'
-import dayjs from 'dayjs'
-import dayOfYear from 'dayjs/plugin/dayOfYear'
-dayjs.extend(dayOfYear)
+import { bbcEpisodes } from '@/db/bbc'
 
 const router = useRouter()
 const route = useRoute()
-const { getByDate, markCompleted } = useEnglishProgress()
 
-const today = dayjs().format('YYYY-MM-DD')
+const episode = computed(() => {
+  const id = Number(route.params.id)
+  return bbcEpisodes.find(e => e.id === id) || bbcEpisodes[0]
+})
+
+// 状态
 const showTranslation = ref(true)
-const todayProgress = ref<any>(null)
-const score = ref(0)
-const currentEpisode = ref<BBCEpisode | null>(null)
-const showEpisodeList = ref(false)
-const isSpeaking = ref(false)
-const speakingSentence = ref(-1)
-const wordPopover = ref({ show: false, word: '', meaning: '', x: 0, y: 0 })
+const showWordModal = ref(false)
+const showWordTip = ref(false)
+const currentWord = ref({ word: '', meaning: '' })
+const currentSentence = ref(0)
+const isPlaying = ref(false)
+const playbackRate = ref(1.0)
+const isLooping = ref(false)
 
-// 根据路由参数或当天日期选择文章
-const episodeId = computed(() => {
-  const id = Number(route.query.episode)
-  if (id && bbcEpisodes.find(e => e.id === id)) return id
-  const doy = dayjs().dayOfYear()
-  return bbcEpisodes[doy % bbcEpisodes.length].id
-})
+// TTS
+let utterance: SpeechSynthesisUtterance | null = null
 
-onMounted(() => {
-  currentEpisode.value = bbcEpisodes.find(e => e.id === episodeId.value) || bbcEpisodes[0]
-  loadProgress()
-})
-
-async function loadProgress() {
-  todayProgress.value = await getByDate(today)
-  if (todayProgress.value?.score) {
-    score.value = todayProgress.value.score
-  }
-}
-
-const isDone = computed(() => !!todayProgress.value?.completed)
-
-// ===== TTS 朗读 =====
-function getVoice(): SpeechSynthesisVoice | null {
+function getVoice() {
   const voices = speechSynthesis.getVoices()
-  let voice = voices.find(v => v.lang.startsWith('en-GB') && v.name.includes('Female'))
-  if (!voice) voice = voices.find(v => v.lang.startsWith('en-GB'))
-  if (!voice) voice = voices.find(v => v.lang.startsWith('en-US') && v.name.includes('Female'))
-  if (!voice) voice = voices.find(v => v.lang.startsWith('en-US'))
-  if (!voice) voice = voices.find(v => v.lang.startsWith('en'))
-  return voice || null
+  return voices.find(v => v.lang.startsWith('en')) || null
 }
 
-// 全文朗读
-function speakAll() {
-  if (!currentEpisode.value) return
-  if (isSpeaking.value) {
-    speechSynthesis.cancel()
-    isSpeaking.value = false
-    speakingSentence.value = -1
-    return
-  }
-  speakSentenceBySentence(0)
-}
-
-function speakSentenceBySentence(index: number) {
-  if (!currentEpisode.value) return
-  const sentences = currentEpisode.value.sentences
-  if (index >= sentences.length) {
-    isSpeaking.value = false
-    speakingSentence.value = -1
-    return
-  }
-
+function speak(text: string, onEnd?: () => void) {
   speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(sentences[index].en)
+  utterance = new SpeechSynthesisUtterance(text)
   const voice = getVoice()
   if (voice) utterance.voice = voice
-  utterance.rate = 0.9
+  utterance.rate = playbackRate.value
   utterance.pitch = 1.0
 
-  isSpeaking.value = true
-  speakingSentence.value = index
-
   utterance.onend = () => {
-    speakSentenceBySentence(index + 1)
+    if (onEnd) onEnd()
   }
-
   utterance.onerror = () => {
-    speakSentenceBySentence(index + 1)
+    if (onEnd) onEnd()
   }
 
   speechSynthesis.speak(utterance)
 }
 
-// 逐句朗读
-function speakSentence(index: number) {
-  if (!currentEpisode.value) return
-  speechSynthesis.cancel()
-  isSpeaking.value = false
-  speakingSentence.value = -1
-
-  const utterance = new SpeechSynthesisUtterance(currentEpisode.value.sentences[index].en)
-  const voice = getVoice()
-  if (voice) utterance.voice = voice
-  utterance.rate = 0.9
-
-  isSpeaking.value = true
-  speakingSentence.value = index
-
-  utterance.onend = () => {
-    isSpeaking.value = false
-    speakingSentence.value = -1
+// 播放/暂停当前句子
+function togglePlay() {
+  if (isPlaying.value) {
+    speechSynthesis.cancel()
+    isPlaying.value = false
+  } else {
+    playCurrentSentence()
   }
-  utterance.onerror = () => {
-    isSpeaking.value = false
-    speakingSentence.value = -1
-  }
-  speechSynthesis.speak(utterance)
 }
 
-function stopSpeaking() {
-  speechSynthesis.cancel()
-  isSpeaking.value = false
-  speakingSentence.value = -1
+function playCurrentSentence() {
+  if (!episode.value) return
+  isPlaying.value = true
+  const text = episode.value.sentences[currentSentence.value].en
+  speak(text, () => {
+    if (isLooping.value) {
+      // 循环模式：重新播放同一句
+      setTimeout(() => playCurrentSentence(), 500)
+    } else if (currentSentence.value < episode.value!.sentences.length - 1) {
+      // 自动播放下一句
+      currentSentence.value++
+      playCurrentSentence()
+    } else {
+      isPlaying.value = false
+    }
+  })
 }
 
-// ===== 单词点击 =====
-function onWordClick(event: MouseEvent, word: string) {
-  // 清理单词（去掉标点）
-  const cleanWord = word.replace(/[.,!?;:'"()]/g, '').toLowerCase()
-  if (!cleanWord || cleanWord.length < 2) return
+// 上一句
+function prevSentence() {
+  if (currentSentence.value > 0) {
+    currentSentence.value--
+    if (isPlaying.value) playCurrentSentence()
+  }
+}
 
-  // 先从当前节目词汇表查找
-  const vocab = currentEpisode.value?.vocabulary.find(
-    v => v.word.toLowerCase() === cleanWord
-  )
+// 下一句
+function nextSentence() {
+  if (!episode.value) return
+  if (currentSentence.value < episode.value.sentences.length - 1) {
+    currentSentence.value++
+    if (isPlaying.value) playCurrentSentence()
+  }
+}
 
-  // 基础词义映射
-  const basicMeanings: Record<string, string> = {
+// 点击句子
+function clickSentence(index: number) {
+  currentSentence.value = index
+  playCurrentSentence()
+}
+
+// 切换循环
+function toggleLoop() {
+  isLooping.value = !isLooping.value
+}
+
+// 倍速
+function setRate(rate: number) {
+  playbackRate.value = rate
+  if (isPlaying.value) {
+    playCurrentSentence()
+  }
+}
+
+// 单词点击
+function onWordClick(word: string) {
+  const clean = word.replace(/[.,!?;:'"()]/g, '').toLowerCase()
+  if (!clean || clean.length < 2) return
+
+  const vocab = episode.value?.vocabulary.find(v => v.word.toLowerCase() === clean)
+
+  const basicDict: Record<string, string> = {
     'hello': '你好', 'welcome': '欢迎', 'today': '今天', 'about': '关于',
     'people': '人们', 'more': '更多', 'world': '世界', 'time': '时间',
     'years': '年', 'many': '许多', 'much': '很多', 'very': '非常',
@@ -234,45 +212,55 @@ function onWordClick(event: MouseEvent, word: string) {
     'bring': '带来', 'carry': '携带', 'hold': '持有',
     'build': '建造', 'break': '打破', 'cut': '切',
     'grow': '生长', 'die': '死亡', 'fall': '落下',
-    'rise': '上升', 'change': '改变', 'turn': '转',
+    'rise': '上升', 'turn': '转',
     'move': '移动', 'run': '跑', 'walk': '走',
     'stand': '站', 'sit': '坐', 'lie': '躺',
     'put': '放', 'set': '设置', 'get': '得到',
+    'around': '在...周围', 'across': '穿过', 'along': '沿着',
+    'above': '在...上方', 'below': '在...下方', 'behind': '在...后面',
+    'before': '在...之前', 'after': '在...之后',
+    'inside': '在里面', 'outside': '在外面',
+    'together': '一起', 'apart': '分开',
+    'away': '离开', 'back': '回来', 'forward': '向前',
+    'up': '向上', 'down': '向下', 'over': '越过',
+    'off': '离开', 'on': '在...上', 'in': '在...里', 'out': '出去',
+    'soon': '很快', 'later': '稍后', 'now': '现在',
+    'then': '那时', 'here': '这里', 'there': '那里',
+    'everywhere': '到处', 'somewhere': '某处',
+    'maybe': '也许', 'perhaps': '或许', 'probably': '可能',
+    'certainly': '当然', 'definitely': '肯定', 'absolutely': '绝对',
+    'actually': '实际上', 'basically': '基本上', 'especially': '尤其',
+    'finally': '最后', 'eventually': '最终', 'suddenly': '突然',
+    'immediately': '立即', 'recently': '最近', 'frequently': '频繁地',
+    'usually': '通常', 'normally': '正常地', 'generally': '一般地',
+    'mainly': '主要地', 'mostly': '大部分', 'partly': '部分地',
+    'hardly': '几乎不', 'barely': '勉强', 'nearly': '几乎',
+    'almost': '几乎', 'quite': '相当', 'rather': '相当',
+    'too': '太', 'enough': '足够', 'extremely': '极其',
+    'highly': '高度地', 'deeply': '深深地', 'strongly': '强烈地',
+    'widely': '广泛地', 'closely': '紧密地', 'directly': '直接地',
+    'exactly': '精确地', 'clearly': '清楚地', 'obviously': '明显地',
+    'apparently': '显然', 'naturally': '自然地', 'easily': '容易地',
+    'quickly': '快速地', 'slowly': '缓慢地', 'carefully': '仔细地',
+    'simply': '简单地', 'mainly': '主要地',
   }
 
-  const meaning = vocab?.meaning || basicMeanings[cleanWord] || ''
+  const meaning = vocab?.meaning || basicDict[clean] || ''
 
-  wordPopover.value = {
-    show: true,
-    word: word.replace(/[.,!?;:'"()]/g, ''),
-    meaning,
-    x: Math.min(event.clientX, window.innerWidth - 150),
-    y: event.clientY - 60,
-  }
-
-  // 3秒后自动关闭
-  setTimeout(() => {
-    wordPopover.value.show = false
-  }, 3000)
+  currentWord.value = { word: word.replace(/[.,!?;:'"()]/g, ''), meaning }
+  showWordTip.value = true
 }
 
-function closeWordPopover() {
-  wordPopover.value.show = false
+function closeWordModal() {
+  showWordModal.value = false
+  showWordTip.value = false
 }
 
-// ===== 文章切换 =====
-function selectEpisode(ep: BBCEpisode) {
-  stopSpeaking()
-  currentEpisode.value = ep
-  showEpisodeList.value = false
-  router.replace({ query: { episode: ep.id } })
-}
-
-async function handleComplete() {
-  if (!currentEpisode.value) return
-  score.value = score.value || 3
-  await markCompleted(currentEpisode.value.id, score.value)
-  await loadProgress()
+// 重置进度
+function resetProgress() {
+  currentSentence.value = 0
+  isPlaying.value = false
+  speechSynthesis.cancel()
 }
 
 onUnmounted(() => {
@@ -281,239 +269,304 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="english-page" @click="closeWordPopover">
-    <van-nav-bar title="BBC 英语" left-arrow @click-left="router.back()" />
+  <div class="english-detail-page">
+    <!-- 顶部栏 -->
+    <div class="top-bar">
+      <div class="back-btn" @click="router.push('/life/english')">
+        <van-icon name="arrow-left" size="16" />
+        <span>返回文章列表</span>
+      </div>
+      <a
+        class="bbc-link"
+        href="https://www.bbc.co.uk/learningenglish/english/features/6-minute-english"
+        target="_blank"
+      >
+        BBC 随身英语（官网版）↗
+      </a>
+    </div>
 
     <div class="scroll-area">
-      <!-- 完成状态 -->
-      <div v-if="isDone" class="done-banner">
-        <van-icon name="success" color="#fff" size="20" />
-        <span>今日跟练已完成 🎉</span>
-        <span class="done-score">{{ '⭐'.repeat(score) }}</span>
-      </div>
-
-      <!-- 操作栏 -->
-      <div class="action-bar">
-        <van-button
-          :type="isSpeaking ? 'danger' : 'primary'"
-          size="small"
-          round
-          @click="speakAll"
-        >
-          <van-icon :name="isSpeaking ? 'pause-circle-o' : 'play-circle-o'" />
-          {{ isSpeaking ? '停止' : '全文朗读' }}
-        </van-button>
-        <van-button size="small" round plain @click="showTranslation = !showTranslation">
-          {{ showTranslation ? '隐藏翻译' : '显示翻译' }}
-        </van-button>
-        <van-button size="small" round plain @click="showEpisodeList = true">
-          更多节目
-        </van-button>
-      </div>
-
       <!-- 文章标题 -->
-      <div class="article-header" v-if="currentEpisode">
-        <h2>{{ currentEpisode.title }}</h2>
-        <p class="title-zh">{{ currentEpisode.titleZh }}</p>
-        <span class="diff-tag" :class="currentEpisode.difficulty">
-          {{ currentEpisode.difficulty === 'easy' ? '⭐ 简单' : currentEpisode.difficulty === 'medium' ? '⭐⭐ 中等' : '⭐⭐⭐ 较难' }}
-        </span>
+      <div class="article-title-section">
+        <h1>{{ episode.title }}</h1>
+        <p class="subtitle">{{ episode.titleZh }}</p>
       </div>
 
-      <!-- 逐句显示 -->
-      <div class="sentence-list" v-if="currentEpisode">
+      <!-- 统计信息 -->
+      <div class="stats-row">
+        <div class="stat-item">
+          <van-icon name="notes-o" size="16" />
+          <span>共 {{ episode.wordCount }} 词</span>
+        </div>
+        <div class="stat-item">
+          <van-icon name="clock-o" size="16" />
+          <span>时长 {{ episode.duration }}</span>
+        </div>
+        <div class="stat-item">
+          <van-icon name="aim" size="16" />
+          <span>词汇量 {{ episode.vocabLevel }}</span>
+        </div>
+      </div>
+
+      <!-- 提示条 -->
+      <div class="tip-box">
+        当前译文为机器自动翻译，仅供参考；盲听时建议关闭「显示译文」专注听英文。
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="action-buttons">
+        <button
+          class="action-btn"
+          :class="{ active: showTranslation }"
+          @click="showTranslation = !showTranslation"
+        >
+          <van-icon name="description" />
+          {{ showTranslation ? '隐藏译文' : '显示译文' }}
+        </button>
+        <button class="action-btn" @click="showWordModal = true">
+          <van-icon name="graduation-cap" />
+          单词训练
+        </button>
+        <button class="action-btn" @click="resetProgress">
+          <van-icon name="replay" />
+          重置进度
+        </button>
+      </div>
+
+      <!-- 句子列表 -->
+      <div class="sentence-list">
         <div
           class="sentence-item"
-          v-for="(s, i) in currentEpisode.sentences"
+          v-for="(s, i) in episode.sentences"
           :key="i"
-          :class="{ active: speakingSentence === i }"
+          :class="{ active: currentSentence === i }"
+          @click="clickSentence(i)"
         >
-          <div class="sentence-en" @click.stop="speakSentence(i)">
-            <span class="sentence-num">{{ i + 1 }}</span>
-            <span
-              v-for="(w, j) in s.en.split(' ')"
-              :key="j"
-              class="word"
-              @click.stop="onWordClick($event, w)"
-            >{{ w }} </span>
-            <van-icon
-              name="volume-o"
-              size="16"
-              class="speak-icon"
-              :class="{ playing: speakingSentence === i }"
-            />
+          <div class="sentence-num">{{ i + 1 }}</div>
+          <div class="sentence-content">
+            <div class="sentence-en">
+              <span
+                v-for="(w, j) in s.en.split(' ')"
+                :key="j"
+                class="word"
+                @click.stop="onWordClick(w)"
+              >{{ w }} </span>
+            </div>
+            <div class="sentence-zh" v-if="showTranslation">{{ s.zh }}</div>
           </div>
-          <div class="sentence-zh" v-show="showTranslation">{{ s.zh }}</div>
         </div>
       </div>
 
-      <!-- 词汇表 -->
-      <div class="vocab-section" v-if="currentEpisode">
-        <h3>📝 重点词汇（点击查看释义）</h3>
-        <div class="vocab-list">
-          <span
-            class="vocab-item"
-            v-for="v in currentEpisode.vocabulary"
-            :key="v.word"
-            @click.stop="wordPopover = { show: true, word: v.word, meaning: v.meaning, x: 100, y: 200 }"
-          >
-            <b>{{ v.word }}</b>
-            <span class="vocab-meaning">{{ v.meaning }}</span>
-          </span>
-        </div>
+      <!-- 底部占位 -->
+      <div style="height: 180px"></div>
+    </div>
+
+    <!-- 底部播放器 -->
+    <div class="player-bar">
+      <!-- 倍速 -->
+      <div class="rate-control">
+        <span>倍速 {{ playbackRate.toFixed(1) }}x</span>
+        <input
+          type="range"
+          min="0.5"
+          max="2.0"
+          step="0.1"
+          :value="playbackRate"
+          @input="(e) => { playbackRate = Number((e.target as HTMLInputElement).value); setRate(playbackRate); }"
+        />
       </div>
 
-      <!-- 完成打卡 -->
-      <div v-if="!isDone" class="complete-section">
-        <div class="score-row">
-          <span>自我评价：</span>
-          <van-rate v-model="score" :count="5" color="#FF8C69" void-color="#eee" />
-        </div>
-        <van-button type="primary" block round size="large" @click="handleComplete">
-          完成今日跟练
-        </van-button>
+      <!-- 进度 -->
+      <div class="progress-info">
+        <span>{{ currentSentence + 1 }}/{{ episode.sentences.length }}</span>
+      </div>
+
+      <!-- 控制按钮 -->
+      <div class="control-buttons">
+        <button class="ctrl-btn" @click="prevSentence">
+          <van-icon name="arrow-left" size="20" />
+        </button>
+        <button class="ctrl-btn play-btn" :class="{ playing: isPlaying }" @click="togglePlay">
+          <van-icon :name="isPlaying ? 'pause' : 'play'" size="24" />
+        </button>
+        <button class="ctrl-btn" @click="nextSentence">
+          <van-icon name="arrow" size="20" />
+        </button>
+        <button class="ctrl-btn" :class="{ active: isLooping }" @click="toggleLoop">
+          <van-icon name="replay" size="20" />
+        </button>
       </div>
     </div>
 
     <!-- 单词弹窗 -->
-    <teleport to="body">
-      <div
-        v-if="wordPopover.show"
-        class="word-popover"
-        :style="{ left: wordPopover.x + 'px', top: wordPopover.y + 'px' }"
-        @click.stop
-      >
-        <div class="popover-word">{{ wordPopover.word }}</div>
-        <div class="popover-meaning" v-if="wordPopover.meaning">{{ wordPopover.meaning }}</div>
-        <div class="popover-meaning" v-else style="color: #999;">暂无翻译</div>
-      </div>
-    </teleport>
-
-    <!-- 节目列表弹窗 -->
-    <van-popup v-model:show="showEpisodeList" position="bottom" round :style="{ height: '70%', padding: '20px' }">
-      <h3>📻 BBC 6 Minute English</h3>
-      <div class="episode-list">
-        <div
-          class="episode-item"
-          v-for="ep in bbcEpisodes"
-          :key="ep.id"
-          :class="{ active: currentEpisode?.id === ep.id }"
-          @click="selectEpisode(ep)"
-        >
-          <div class="ep-title">{{ ep.title }}</div>
-          <div class="ep-title-zh">{{ ep.titleZh }}</div>
-          <van-tag size="mini" :type="ep.difficulty === 'easy' ? 'success' : ep.difficulty === 'medium' ? 'warning' : 'danger'">
-            {{ ep.difficulty === 'easy' ? '简单' : ep.difficulty === 'medium' ? '中等' : '较难' }}
-          </van-tag>
+    <van-popup v-model:show="showWordModal" round position="center" :style="{ width: '80%', padding: '20px' }">
+      <div class="word-modal">
+        <h3>🎓 单词训练</h3>
+        <div class="word-list">
+          <div class="word-row" v-for="v in episode.vocabulary" :key="v.word">
+            <span class="word-en">{{ v.word }}</span>
+            <span class="word-meaning">{{ v.meaning }}</span>
+          </div>
         </div>
+      </div>
+    </van-popup>
+
+    <!-- 单词点击提示 -->
+    <van-popup v-model:show="showWordTip" round position="bottom" :style="{ padding: '20px' }">
+      <div class="word-tip">
+        <div class="word-tip-word">{{ currentWord.word }}</div>
+        <div class="word-tip-meaning" v-if="currentWord.meaning">{{ currentWord.meaning }}</div>
+        <div class="word-tip-meaning" v-else style="color: #999;">暂无翻译</div>
       </div>
     </van-popup>
   </div>
 </template>
 
 <style scoped>
-.english-page {
+.english-detail-page {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f5f7fa;
+  background: #fff;
 }
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #07c160;
+  cursor: pointer;
+}
+.bbc-link {
+  font-size: 13px;
+  color: #07c160;
+  text-decoration: none;
+}
+
 .scroll-area {
   flex: 1;
   overflow-y: auto;
-  padding: 0 16px 16px;
-}
-
-.done-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #52C41A, #73D13D);
-  color: #fff;
-  padding: 12px 16px;
-  border-radius: 10px;
-  margin-top: 12px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.done-score { margin-left: auto; font-size: 12px; }
-
-.action-bar {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.article-header {
-  margin-top: 16px;
   padding: 16px;
-  background: #fff;
-  border-radius: 12px;
 }
-.article-header h2 {
-  margin: 0;
-  font-size: 18px;
+
+.article-title-section {
+  margin-bottom: 12px;
+}
+.article-title-section h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
   color: #333;
   line-height: 1.4;
 }
-.title-zh {
-  margin: 4px 0 8px;
+.subtitle {
+  margin: 0;
+  font-size: 15px;
+  color: #666;
+}
+
+.stats-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
-  color: #999;
+  color: #666;
 }
-.diff-tag {
-  display: inline-block;
-  font-size: 11px;
-  padding: 2px 8px;
+
+.tip-box {
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
   border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #d48806;
+  line-height: 1.5;
+  margin-bottom: 12px;
 }
-.diff-tag.easy { background: #f0f9ff; color: #07c160; }
-.diff-tag.medium { background: #fff7e6; color: #ff976a; }
-.diff-tag.hard { background: #fff0f0; color: #ee0a24; }
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.action-btn.active {
+  border-color: #07c160;
+  color: #07c160;
+  background: #f6ffed;
+}
+.action-btn:active {
+  opacity: 0.8;
+}
 
 .sentence-list {
-  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 .sentence-item {
-  background: #fff;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 6px;
-  transition: all 0.2s;
-  border-left: 3px solid transparent;
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 .sentence-item.active {
-  border-left-color: #1989fa;
-  background: #f0f7ff;
+  background: #f6ffed;
+}
+.sentence-item:active {
+  background: #f5f5f5;
+}
+.sentence-num {
+  min-width: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  text-align: right;
+}
+.sentence-content {
+  flex: 1;
 }
 .sentence-en {
   font-size: 15px;
   line-height: 1.7;
   color: #333;
-  cursor: pointer;
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-.sentence-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  background: #1989fa;
-  color: #fff;
-  border-radius: 50%;
-  font-size: 11px;
-  margin-right: 8px;
-  margin-top: 1px;
-  flex-shrink: 0;
+  margin-bottom: 4px;
 }
 .word {
   cursor: pointer;
-  transition: all 0.15s;
-  border-radius: 3px;
+  transition: all 0.1s;
+  border-radius: 2px;
   padding: 0 1px;
 }
 .word:hover {
@@ -522,125 +575,129 @@ onUnmounted(() => {
 .word:active {
   background: #fdcb6e;
 }
-.speak-icon {
-  margin-left: auto;
-  color: #1989fa;
-  cursor: pointer;
-  flex-shrink: 0;
-  margin-top: 2px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-}
-.speak-icon.playing {
-  opacity: 1;
-  animation: pulse 0.8s infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
 .sentence-zh {
-  font-size: 13px;
-  color: #666;
-  margin-top: 8px;
-  padding-left: 30px;
-  line-height: 1.6;
-  border-top: 1px dashed #eee;
-  padding-top: 8px;
-}
-
-.vocab-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 12px;
-}
-.vocab-section h3 { margin: 0 0 10px; font-size: 14px; color: #666; }
-.vocab-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.vocab-item {
-  background: #f0f9ff;
-  padding: 6px 12px;
-  border-radius: 14px;
-  font-size: 13px;
-  color: #555;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.vocab-item:active { background: #d6eeff; transform: scale(0.96); }
-.vocab-meaning { color: #999; font-size: 12px; }
-
-.complete-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 12px;
-}
-.score-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
   font-size: 14px;
-  color: #666;
+  color: #999;
+  line-height: 1.6;
 }
 
-/* 单词弹窗 */
-.word-popover {
+/* 底部播放器 */
+.player-bar {
   position: fixed;
-  background: #333;
-  color: #fff;
-  padding: 10px 16px;
-  border-radius: 10px;
-  z-index: 9999;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-  max-width: 200px;
-  pointer-events: none;
-  animation: popIn 0.2s ease;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #e8e8e8;
+  padding: 10px 16px 20px;
+  z-index: 100;
 }
-@keyframes popIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.popover-word {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-.popover-meaning {
-  font-size: 13px;
-  color: #ccc;
-}
-
-.episode-list {
-  max-height: calc(100% - 50px);
-  overflow-y: auto;
-}
-.episode-item {
+.rate-control {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #666;
+}
+.rate-control input {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #e8e8e8;
+  border-radius: 2px;
+  outline: none;
+}
+.rate-control input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #07c160;
   cursor: pointer;
 }
-.episode-item.active { background: #e8f4ff; }
-.episode-item:active { background: #f5f5f5; }
-.ep-title {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ep-title-zh {
+
+.progress-info {
+  text-align: center;
   font-size: 12px;
   color: #999;
-  min-width: 80px;
-  text-align: right;
+  margin-bottom: 8px;
+}
+
+.control-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+.ctrl-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ctrl-btn:active {
+  opacity: 0.7;
+}
+.ctrl-btn.active {
+  border-color: #07c160;
+  color: #07c160;
+  background: #f6ffed;
+}
+.play-btn {
+  width: 52px;
+  height: 52px;
+  background: #07c160;
+  color: #fff;
+  border: none;
+}
+.play-btn.playing {
+  background: #ff976a;
+}
+
+/* 单词弹窗 */
+.word-modal h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  text-align: center;
+}
+.word-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.word-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.word-en {
+  font-weight: 600;
+  color: #333;
+}
+.word-meaning {
+  color: #666;
+  font-size: 14px;
+}
+
+.word-tip {
+  text-align: center;
+}
+.word-tip-word {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.word-tip-meaning {
+  font-size: 16px;
+  color: #666;
 }
 </style>
