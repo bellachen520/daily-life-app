@@ -356,9 +356,6 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-
-      <!-- 底部占位 -->
-      <div style="height: 220px"></div>
     </div>
 
     <!-- 底部播放器 -->
@@ -424,27 +421,22 @@ onUnmounted(() => {
 
 <style scoped>
 .english-detail-page {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: #fff;
-  overflow: hidden;
-  height: 100vh;
-  height: 100dvh;
+  padding-bottom: 160px;
 }
 
 .top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 16px;
   background: #fff;
   border-bottom: 1px solid #f0f0f0;
-  flex-shrink: 0;
 }
 .back-btn {
   display: flex;
@@ -461,13 +453,7 @@ onUnmounted(() => {
 }
 
 .scroll-area {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
   padding: 16px;
-  min-height: 0;
 }
 
 .article-title-section {

@@ -114,11 +114,13 @@ export function useTodos() {
   }
 
   async function getActive() {
-    return db.todos.where('completed').equals(0).sortBy('order')
+    const all = await db.todos.orderBy('order').toArray()
+    return all.filter(t => !t.completed)
   }
 
   async function getCompleted() {
-    return db.todos.where('completed').equals(1).toArray()
+    const all = await db.todos.orderBy('order').toArray()
+    return all.filter(t => t.completed)
   }
 
   async function getByPriority(priority: 'high' | 'medium' | 'low') {

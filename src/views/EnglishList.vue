@@ -67,26 +67,21 @@ function goDetail(id: number) {
 
 <style scoped>
 .english-list-page {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: #f5f7fa;
-  overflow: hidden;
-  height: 100vh;
-  height: 100dvh;
+  padding-bottom: 80px;
 }
 
 .top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   padding: 12px 16px;
   background: #fff;
   gap: 12px;
-  flex-shrink: 0;
 }
 .page-title {
   flex: 1;
@@ -99,13 +94,7 @@ function goDetail(id: number) {
 }
 
 .scroll-area {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-  padding: 12px 16px 80px;
-  min-height: 0;
+  padding: 12px 16px;
 }
 
 .intro-card {
