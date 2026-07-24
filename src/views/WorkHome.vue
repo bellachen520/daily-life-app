@@ -1,330 +1,302 @@
-<script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useTodos, useCustomers } from '@/composables/useDB'
-
-const router = useRouter()
-const { getActive, getCompleted } = useTodos()
-const { getAll: getCustomers } = useCustomers()
-
-const activeTodos = ref<any[]>([])
-const completedTodos = ref<any[]>([])
-const customers = ref<any[]>([])
-
-const todoStats = computed(() => ({
-  active: activeTodos.value.length,
-  completed: completedTodos.value.length,
-  total: activeTodos.value.length + completedTodos.value.length,
-}))
-
-const customerStats = computed(() => ({
-  total: customers.value.length,
-  active: customers.value.filter(c => c.status === 'active').length,
-  needFollowUp: customers.value.filter(c => {
-    if (!c.lastFollowUpAt) return true
-    return Date.now() - c.lastFollowUpAt > 7 * 24 * 60 * 60 * 1000
-  }).length,
-}))
-
-async function loadData() {
-  const [todos, done, custs] = await Promise.all([
-    getActive(),
-    getCompleted(),
-    getCustomers(),
-  ])
-  activeTodos.value = todos.slice(0, 5)
-  completedTodos.value = done
-  customers.value = custs
-}
-
-function goTodos() {
-  router.push('/work/todos')
-}
-
-function goCustomers() {
-  router.push('/work/customers')
-}
-
-function goCustomer(id: number) {
-  router.push(`/work/customers/${id}`)
-}
-
-onMounted(loadData)
-</script>
-
 <template>
-  <div class="page-container">
-    <div class="page-header-section">
-      <h1 class="page-title">工作台</h1>
-      <p class="page-subtitle">高效管理，有条不紊</p>
+  <div class="work-page">
+    <div class="page-header">
+      <h2>💼 工作台</h2>
+      <p class="subtitle">高效管理工作待办与客户</p>
     </div>
 
-    <!-- 待办概览 -->
-    <div class="section">
-      <div class="section-header">
-        <h3 class="section-title">待办事项</h3>
-        <span class="section-action" @click="goTodos">查看全部 →</span>
-      </div>
-      <div class="stats-mini">
-        <div class="stat-mini pending">
-          <span class="stat-mini-num">{{ todoStats.active }}</span>
-          <span class="stat-mini-label">待完成</span>
+    <div class="scroll-area">
+      <!-- 今日待办 -->
+      <div class="section">
+        <div class="section-header">
+          <h3>📋 今日待办</h3>
+          <span class="count-badge">{{ activeTodos.length }}</span>
         </div>
-        <div class="stat-mini done">
-          <span class="stat-mini-num">{{ todoStats.completed }}</span>
-          <span class="stat-mini-label">已完成</span>
-        </div>
-      </div>
-      <div v-if="activeTodos.length === 0" class="empty-hint">
-        暂无待办，去添加一个吧
-      </div>
-      <div v-else class="todo-preview">
-        <div v-for="todo in activeTodos" :key="todo.id" class="todo-item">
-          <div class="todo-dot" :class="'priority-' + todo.priority"></div>
-          <span class="todo-title">{{ todo.title }}</span>
-          <span v-if="todo.dueDate" class="todo-due">{{ todo.dueDate }}</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- 客户概览 -->
-    <div class="section">
-      <div class="section-header">
-        <h3 class="section-title">客户管理</h3>
-        <span class="section-action" @click="goCustomers">查看全部 →</span>
-      </div>
-      <div class="stats-mini">
-        <div class="stat-mini total">
-          <span class="stat-mini-num">{{ customerStats.total }}</span>
-          <span class="stat-mini-label">总客户</span>
-        </div>
-        <div class="stat-mini active">
-          <span class="stat-mini-num">{{ customerStats.active }}</span>
-          <span class="stat-mini-label">活跃</span>
-        </div>
-        <div class="stat-mini follow">
-          <span class="stat-mini-num">{{ customerStats.needFollowUp }}</span>
-          <span class="stat-mini-label">待跟进</span>
-        </div>
-      </div>
-      <div v-if="customers.length === 0" class="empty-hint">
-        暂无客户，去添加吧
-      </div>
-      <div v-else class="customer-preview">
-        <div
-          v-for="customer in customers.slice(0, 3)"
-          :key="customer.id"
-          class="customer-item"
-          @click="goCustomer(customer.id!)"
-        >
-          <div class="customer-avatar">{{ customer.name[0] }}</div>
-          <div class="customer-info">
-            <span class="customer-name">{{ customer.name }}</span>
-            <span class="customer-company">{{ customer.company }}</span>
-          </div>
-          <van-tag
-            :type="customer.status === 'active' ? 'success' : customer.status === 'inactive' ? 'warning' : 'default'"
-            size="mini"
+        <div class="todo-list" v-if="activeTodos.length > 0">
+          <div
+            class="todo-item"
+            v-for="todo in activeTodos"
+            :key="todo.id"
+            :class="{ 'priority-high': todo.priority === 'high' }"
           >
-            {{ customer.status === 'active' ? '活跃' : customer.status === 'inactive' ? '不活跃' : '已结束' }}
+            <div class="todo-main" @click="toggleTodo(todo.id!)">
+              <van-icon
+                :name="todo.completed ? 'checked' : 'circle'"
+                :color="todo.completed ? '#07c160' : '#c8c9cc'"
+                size="20"
+              />
+              <div class="todo-info">
+                <div class="todo-title">{{ todo.title }}</div>
+                <div class="todo-meta" v-if="todo.description">
+                  {{ todo.description }}
+                </div>
+                <div class="todo-tags">
+                  <van-tag
+                    :type="todo.priority === 'high' ? 'danger' : todo.priority === 'medium' ? 'warning' : 'default'"
+                    size="mini"
+                  >
+                    {{ todo.priority === 'high' ? '高' : todo.priority === 'medium' ? '中' : '低' }}
+                  </van-tag>
+                  <span class="todo-date" v-if="todo.dueDate">📅 {{ todo.dueDate }}</span>
+                </div>
+              </div>
+            </div>
+            <van-icon name="delete-o" class="delete-btn" @click="deleteTodo(todo.id!)" />
+          </div>
+        </div>
+
+        <div class="empty-todos" v-else>
+          <p>暂无待办事项</p>
+        </div>
+
+        <!-- 已完成待办 -->
+        <div class="completed-section" v-if="completedTodos.length > 0">
+          <div class="completed-header" @click="showCompleted = !showCompleted">
+            <span>✅ 已完成 ({{ completedTodos.length }})</span>
+            <van-icon :name="showCompleted ? 'arrow-up' : 'arrow-down'" />
+          </div>
+          <div class="todo-item completed" v-for="todo in completedTodos" :key="todo.id" v-show="showCompleted">
+            <div class="todo-main" @click="toggleTodo(todo.id!)">
+              <van-icon name="checked" color="#07c160" size="20" />
+              <div class="todo-info">
+                <div class="todo-title done">{{ todo.title }}</div>
+                <div class="todo-meta" v-if="todo.description">{{ todo.description }}</div>
+              </div>
+            </div>
+            <van-icon name="delete-o" class="delete-btn" @click="deleteTodo(todo.id!)" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 快速操作 -->
+      <div class="section">
+        <h3>⚡ 快速操作</h3>
+        <div class="quick-actions">
+          <div class="action-btn" @click="$router.push('/work/todos')">
+            <van-icon name="add-o" size="24" color="#1989fa" />
+            <span>新增待办</span>
+          </div>
+          <div class="action-btn" @click="$router.push('/work/customers')">
+            <van-icon name="friends-o" size="24" color="#07c160" />
+            <span>客户管理</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 最近客户 -->
+      <div class="section">
+        <div class="section-header">
+          <h3>👥 客户列表</h3>
+          <span class="view-all" @click="$router.push('/work/customers')">全部</span>
+        </div>
+        <div class="customer-item" v-for="c in recentCustomers" :key="c.id" @click="$router.push(`/work/customers/${c.id}`)">
+          <div class="customer-info">
+            <div class="customer-name">{{ c.name }}</div>
+            <div class="customer-model">{{ c.machineModel || '未填写机型' }}</div>
+          </div>
+          <van-tag :type="c.status === 'active' ? 'success' : c.status === 'inactive' ? 'warning' : 'default'" size="small">
+            {{ c.status === 'active' ? '跟进中' : c.status === 'inactive' ? '暂停' : '已关闭' }}
           </van-tag>
         </div>
-      </div>
-    </div>
-
-    <!-- 快速操作 -->
-    <div class="section">
-      <h3 class="section-title">快速操作</h3>
-      <div class="quick-actions">
-        <div class="quick-action" @click="goTodos">
-          <van-icon name="todo-list-o" size="24" color="#679B9B" />
-          <span>新增待办</span>
-        </div>
-        <div class="quick-action" @click="goCustomers">
-          <van-icon name="add-o" size="24" color="#679B9B" />
-          <span>新增客户</span>
+        <div class="empty-hint" v-if="recentCustomers.length === 0">
+          <p>暂无客户</p>
         </div>
       </div>
     </div>
   </div>
 </template>
 
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useTodos, useCustomers } from '@/composables/useDB'
+import { showToast } from 'vant'
+
+const { getActive, getCompleted, toggleTodo: toggle, deleteTodo: delTodo } = useTodos()
+const { getAll } = useCustomers()
+
+const activeTodos = ref<any[]>([])
+const completedTodos = ref<any[]>([])
+const recentCustomers = ref<any[]>([])
+const showCompleted = ref(false)
+
+async function loadData() {
+  activeTodos.value = await getActive()
+  completedTodos.value = await getCompleted()
+  const all = await getAll()
+  recentCustomers.value = all.slice(0, 5)
+}
+
+async function toggleTodo(id: number) {
+  await toggle(id)
+  await loadData()
+}
+
+async function deleteTodo(id: number) {
+  await delTodo(id)
+  showToast('已删除')
+  await loadData()
+}
+
+onMounted(loadData)
+</script>
+
 <style scoped>
-.page-header-section {
-  margin-bottom: var(--spacing-xl);
-}
-
-.stats-mini {
+.work-page {
+  height: 100%;
   display: flex;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
+  flex-direction: column;
+  background: #f5f7fa;
 }
-
-.stat-mini {
+.page-header {
+  padding: 16px 16px 8px;
+  background: #fff;
+}
+.page-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #999;
+}
+.scroll-area {
   flex: 1;
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-md);
-  text-align: center;
+  overflow-y: auto;
+  padding: 0 16px 16px;
 }
-
-.stat-mini-num {
-  display: block;
-  font-size: var(--font-size-xxl);
-  font-weight: 700;
-}
-
-.stat-mini-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
-.stat-mini.pending .stat-mini-num { color: #FAAD14; }
-.stat-mini.done .stat-mini-num { color: #52C41A; }
-.stat-mini.total .stat-mini-num { color: #679B9B; }
-.stat-mini.active .stat-mini-num { color: #52C41A; }
-.stat-mini.follow .stat-mini-num { color: #FF4D4F; }
 
 .section {
-  margin-bottom: var(--spacing-xl);
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
 }
-
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 12px;
 }
-
-.section-title {
-  font-size: var(--font-size-lg);
-  font-weight: 700;
+.section h3, .section-header h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
 }
-
-.section-action {
-  font-size: var(--font-size-sm);
-  color: var(--color-work);
+.section-header h3 {
+  margin: 0;
+}
+.count-badge {
+  background: #1989fa;
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.view-all {
+  font-size: 13px;
+  color: #1989fa;
   cursor: pointer;
-}
-
-.empty-hint {
-  text-align: center;
-  padding: var(--spacing-lg);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-light);
-}
-
-.todo-preview {
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  overflow: hidden;
 }
 
 .todo-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid var(--color-divider);
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f5;
 }
-
-.todo-item:last-child {
-  border-bottom: none;
-}
-
-.todo-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.todo-dot.priority-high { background: #FF4D4F; }
-.todo-dot.priority-medium { background: #FAAD14; }
-.todo-dot.priority-low { background: #52C41A; }
-
-.todo-title {
+.todo-item:last-child { border-bottom: none; }
+.todo-main {
   flex: 1;
-  font-size: var(--font-size-md);
-}
-
-.todo-due {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-light);
-}
-
-.customer-preview {
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.customer-item {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid var(--color-divider);
+  align-items: flex-start;
+  gap: 10px;
   cursor: pointer;
 }
-
-.customer-item:last-child {
-  border-bottom: none;
-}
-
-.customer-item:active {
-  background: var(--color-bg-secondary);
-}
-
-.customer-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--color-work);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: var(--font-size-md);
-}
-
-.customer-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.customer-name {
-  font-size: var(--font-size-md);
+.todo-info { flex: 1; }
+.todo-title {
+  font-size: 15px;
   font-weight: 500;
 }
+.todo-title.done {
+  text-decoration: line-through;
+  color: #999;
+}
+.todo-meta {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+.todo-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.todo-date { font-size: 12px; color: #999; }
+.delete-btn {
+  color: #ee0a24;
+  cursor: pointer;
+  padding: 4px;
+}
+.priority-high {
+  border-left: 3px solid #ee0a24;
+  padding-left: 8px;
+}
 
-.customer-company {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+.completed-section { margin-top: 12px; }
+.completed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13px;
+  color: #999;
+  cursor: pointer;
+}
+.completed { opacity: 0.7; }
+
+.empty-todos {
+  text-align: center;
+  padding: 20px 0;
+  color: #999;
+  font-size: 14px;
 }
 
 .quick-actions {
   display: flex;
-  gap: var(--spacing-md);
+  gap: 12px;
 }
-
-.quick-action {
+.action-btn {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-sm);
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-lg);
+  gap: 6px;
+  padding: 14px;
+  background: #f7f8fa;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
+  font-size: 13px;
+  color: #333;
 }
 
-.quick-action:active {
-  background: var(--color-bg-secondary);
+.customer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+}
+.customer-item:last-child { border-bottom: none; }
+.customer-name { font-size: 15px; font-weight: 500; }
+.customer-model { font-size: 12px; color: #999; margin-top: 2px; }
+
+.empty-hint {
+  text-align: center;
+  padding: 16px 0;
+  color: #999;
+  font-size: 13px;
 }
 </style>

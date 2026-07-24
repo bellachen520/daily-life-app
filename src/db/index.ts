@@ -30,6 +30,7 @@ export interface EnglishArticle {
   translation: string
   difficulty: 'easy' | 'medium' | 'hard'
   topic: string
+  sentences: { en: string; zh: string }[]
   vocabulary: { word: string; meaning: string }[]
 }
 
@@ -57,10 +58,8 @@ export interface Todo {
 export interface Customer {
   id?: number
   name: string
-  company: string
-  phone: string
-  email: string
-  tags: string[]
+  machineModel: string
+  priceQuote: number
   status: 'active' | 'inactive' | 'closed'
   notes: string
   lastFollowUpAt: number | null
@@ -89,6 +88,8 @@ export interface ChenchenCheckin {
 export interface GrowthRecord {
   id?: number
   date: string // YYYY-MM
+  age: number
+  gender: 'boy' | 'girl'
   height: number // cm
   weight: number // kg
   notes: string

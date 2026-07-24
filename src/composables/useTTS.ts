@@ -1,119 +1,69 @@
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 
 export function useTTS() {
   const isSpeaking = ref(false)
-  const isPaused = ref(false)
-  const voices = ref<SpeechSynthesisVoice[]>([])
-  const selectedVoice = ref<SpeechSynthesisVoice | null>(null)
-  const rate = ref(0.8)
-  const isSupported = ref(false)
+  const rate = ref(1.0)
+  const voiceName = ref('')
 
-  let utterance: SpeechSynthesisUtterance | null = null
-  let sentences: string[] = []
-  let currentIndex = 0
-
-  function loadVoices() {
-    const allVoices = speechSynthesis.getVoices()
-    voices.value = allVoices
-    // 优先选择英音
-    const enGBVoices = allVoices.filter(v => v.lang.startsWith('en-GB'))
-    if (enGBVoices.length > 0) {
-      selectedVoice.value = enGBVoices.find(v => v.name.includes('Female')) ||
-        enGBVoices.find(v => v.name.includes('Susan')) ||
-        enGBVoices[0]
-    } else {
-      // 如果没有英音，尝试用 en-US
-      const enUSVoices = allVoices.filter(v => v.lang.startsWith('en-US'))
-      if (enUSVoices.length > 0) {
-        selectedVoice.value = enUSVoices.find(v => v.name.includes('Female')) || enUSVoices[0]
-      }
-    }
-  }
-
-  onMounted(() => {
-    isSupported.value = typeof speechSynthesis !== 'undefined'
-    if (isSupported.value) {
-      loadVoices()
-      speechSynthesis.addEventListener('voiceschanged', loadVoices)
-    }
-  })
-
-  function splitSentences(text: string): string[] {
-    return text
-      .split(/(?<=[.!?])\s+/)
-      .filter(s => s.trim().length > 0)
+  function getVoice(): SpeechSynthesisVoice | null {
+    const voices = speechSynthesis.getVoices()
+    // 优先英式女声
+    let voice = voices.find(v => v.lang.startsWith('en-GB') && v.name.includes('Female'))
+    if (!voice) voice = voices.find(v => v.lang.startsWith('en-GB'))
+    if (!voice) voice = voices.find(v => v.lang.startsWith('en-US') && v.name.includes('Female'))
+    if (!voice) voice = voices.find(v => v.lang.startsWith('en-US'))
+    if (!voice) voice = voices.find(v => v.lang.startsWith('en'))
+    return voice || null
   }
 
   function speak(text: string) {
-    if (!isSupported.value) return
-    stop()
-    sentences = splitSentences(text)
-    currentIndex = 0
-    speakCurrent()
-  }
+    // iOS Safari: 必须先取消之前的播放
+    speechSynthesis.cancel()
 
-  function speakCurrent() {
-    if (currentIndex >= sentences.length) {
-      isSpeaking.value = false
-      return
+    const utterance = new SpeechSynthesisUtterance(text)
+    const voice = getVoice()
+    if (voice) {
+      utterance.voice = voice
+      voiceName.value = voice.name
     }
-    utterance = new SpeechSynthesisUtterance(sentences[currentIndex])
     utterance.rate = rate.value
-    if (selectedVoice.value) {
-      utterance.voice = selectedVoice.value
+    utterance.pitch = 1.0
+    utterance.volume = 1.0
+
+    // iOS Safari keep-alive: 防止自动暂停
+    let keepAlive: ReturnType<typeof setInterval> | null = null
+
+    utterance.onstart = () => {
+      isSpeaking.value = true
+      keepAlive = setInterval(() => {
+        if (isSpeaking.value && !speechSynthesis.speaking) {
+          speechSynthesis.resume()
+        }
+      }, 5000)
     }
+
     utterance.onend = () => {
-      currentIndex++
-      speakCurrent()
-    }
-    utterance.onerror = () => {
       isSpeaking.value = false
+      if (keepAlive) clearInterval(keepAlive)
     }
-    isSpeaking.value = true
-    isPaused.value = false
+
+    utterance.onerror = (e) => {
+      isSpeaking.value = false
+      if (keepAlive) clearInterval(keepAlive)
+      console.warn('TTS error:', e)
+    }
+
     speechSynthesis.speak(utterance)
-  }
-
-  function pause() {
-    if (isSpeaking.value) {
-      speechSynthesis.pause()
-      isPaused.value = true
-    }
-  }
-
-  function resume() {
-    if (isPaused.value) {
-      speechSynthesis.resume()
-      isPaused.value = false
-    }
   }
 
   function stop() {
     speechSynthesis.cancel()
     isSpeaking.value = false
-    isPaused.value = false
-    currentIndex = 0
   }
 
-  function setRate(newRate: number) {
-    rate.value = newRate
-    if (isSpeaking.value) {
-      stop()
-      speakCurrent()
-    }
+  function setRate(r: number) {
+    rate.value = r
   }
 
-  return {
-    isSpeaking,
-    isPaused,
-    voices,
-    selectedVoice,
-    rate,
-    isSupported,
-    speak,
-    pause,
-    resume,
-    stop,
-    setRate,
-  }
+  return { isSpeaking, rate, voiceName, speak, stop, setRate }
 }

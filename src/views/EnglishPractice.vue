@@ -1,29 +1,37 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useEnglishProgress } from '@/composables/useDB'
 import { useTTS } from '@/composables/useTTS'
-import { englishArticles } from '@/db/seeds'
-import ArticleCard from '@/components/ArticleCard.vue'
+import { bbcEpisodes, type BBCEpisode } from '@/db/bbc'
 import dayjs from 'dayjs'
 import dayOfYear from 'dayjs/plugin/dayOfYear'
 dayjs.extend(dayOfYear)
 
 const router = useRouter()
+const route = useRoute()
 const { getByDate, markCompleted } = useEnglishProgress()
 const tts = useTTS()
 
 const today = dayjs().format('YYYY-MM-DD')
-const showTranslation = ref(false)
+const showTranslation = ref(true)
 const todayProgress = ref<any>(null)
 const score = ref(0)
+const currentEpisode = ref<BBCEpisode | null>(null)
+const showEpisodeList = ref(false)
 
-const todayArticle = computed(() => {
-  const dayOfYear = dayjs().dayOfYear()
-  return englishArticles[dayOfYear % englishArticles.length]
+// 根据路由参数或当天日期选择文章
+const episodeId = computed(() => {
+  const id = Number(route.query.episode)
+  if (id && bbcEpisodes.find(e => e.id === id)) return id
+  const doy = dayjs().dayOfYear()
+  return bbcEpisodes[doy % bbcEpisodes.length].id
 })
 
-const isDone = computed(() => !!todayProgress.value?.completed)
+onMounted(() => {
+  currentEpisode.value = bbcEpisodes.find(e => e.id === episodeId.value) || bbcEpisodes[0]
+  loadProgress()
+})
 
 async function loadProgress() {
   todayProgress.value = await getByDate(today)
@@ -32,40 +40,42 @@ async function loadProgress() {
   }
 }
 
-function toggleTranslation() {
-  showTranslation.value = !showTranslation.value
-}
+const isDone = computed(() => !!todayProgress.value?.completed)
 
 function handleSpeak() {
+  if (!currentEpisode.value) return
   if (tts.isSpeaking.value) {
     tts.stop()
   } else {
-    tts.speak(todayArticle.value.content)
+    const text = currentEpisode.value.sentences.map(s => s.en).join('. ')
+    tts.speak(text)
   }
 }
 
 async function handleComplete() {
+  if (!currentEpisode.value) return
   score.value = score.value || 3
-  await markCompleted(todayArticle.value.id, score.value)
-  loadProgress()
+  await markCompleted(currentEpisode.value.id, score.value)
+  await loadProgress()
 }
 
-function goBack() {
-  router.back()
+function selectEpisode(ep: BBCEpisode) {
+  currentEpisode.value = ep
+  showEpisodeList.value = false
+  router.replace({ query: { episode: ep.id } })
 }
-
-onMounted(loadProgress)
 </script>
 
 <template>
-  <div>
-    <van-nav-bar title="英语跟练" left-arrow @click-left="goBack" />
-    <div class="page-container">
+  <div class="english-page">
+    <van-nav-bar title="BBC 英语" left-arrow @click-left="router.back()" />
+
+    <div class="scroll-area">
       <!-- 完成状态 -->
       <div v-if="isDone" class="done-banner">
         <van-icon name="success" color="#fff" size="20" />
         <span>今日跟练已完成 🎉</span>
-        <span class="done-score">自评：{{ '⭐'.repeat(score) }}</span>
+        <span class="done-score">{{ '⭐'.repeat(score) }}</span>
       </div>
 
       <!-- 操作栏 -->
@@ -77,126 +87,229 @@ onMounted(loadProgress)
           :icon="tts.isSpeaking.value ? 'pause-circle-o' : 'play-circle-o'"
           @click="handleSpeak"
         >
-          {{ tts.isSpeaking.value ? '停止' : '朗读' }}
+          {{ tts.isSpeaking.value ? '停止' : '全文朗读' }}
         </van-button>
-        <van-button size="small" round plain @click="toggleTranslation">
+        <van-button size="small" round plain @click="showTranslation = !showTranslation">
           {{ showTranslation ? '隐藏翻译' : '显示翻译' }}
         </van-button>
-        <div class="rate-control">
-          <span class="rate-label">语速</span>
-          <van-stepper
-            v-model="tts.rate.value"
-            :min="0.5"
-            :max="2"
-            :step="0.1"
-            :decimal-length="1"
-            theme="round"
-            button-size="22"
-            @change="tts.setRate(tts.rate.value)"
-          />
+        <van-button size="small" round plain @click="showEpisodeList = true">
+          更多节目
+        </van-button>
+      </div>
+
+      <!-- 文章标题 -->
+      <div class="article-header" v-if="currentEpisode">
+        <h2>{{ currentEpisode.title }}</h2>
+        <p class="title-zh">{{ currentEpisode.titleZh }}</p>
+      </div>
+
+      <!-- 逐句显示 -->
+      <div class="sentence-list" v-if="currentEpisode">
+        <div
+          class="sentence-item"
+          v-for="(s, i) in currentEpisode.sentences"
+          :key="i"
+          @click="tts.speak(s.en)"
+        >
+          <div class="sentence-en">
+            <span class="sentence-num">{{ i + 1 }}</span>
+            {{ s.en }}
+          </div>
+          <div class="sentence-zh" v-show="showTranslation">{{ s.zh }}</div>
         </div>
       </div>
 
-      <!-- 文章内容 -->
-      <ArticleCard
-        :article="todayArticle"
-        :show-translation="showTranslation"
-      />
+      <!-- 词汇表 -->
+      <div class="vocab-section" v-if="currentEpisode">
+        <h3>📝 重点词汇</h3>
+        <div class="vocab-list">
+          <span class="vocab-item" v-for="v in currentEpisode.vocabulary" :key="v.word">
+            <b>{{ v.word }}</b> {{ v.meaning }}
+          </span>
+        </div>
+      </div>
 
       <!-- 完成打卡 -->
       <div v-if="!isDone" class="complete-section">
         <div class="score-row">
-          <span class="score-label">自我评价：</span>
-          <van-rate v-model="score" :count="5" color="#FF8C69" void-color="#F0E8E4" />
+          <span>自我评价：</span>
+          <van-rate v-model="score" :count="5" color="#FF8C69" void-color="#eee" />
         </div>
         <van-button type="primary" block round size="large" @click="handleComplete">
           完成今日跟练
         </van-button>
       </div>
+    </div>
 
-      <!-- 进度统计 -->
-      <div class="stats-section">
-        <h4 class="section-subtitle">跟练记录</h4>
-        <div v-if="!todayProgress" class="no-history">
-          今天还没完成跟练哦
+    <!-- 节目列表弹窗 -->
+    <van-popup v-model:show="showEpisodeList" position="bottom" round :style="{ height: '70%', padding: '20px' }">
+      <h3>📻 BBC 6 Minute English</h3>
+      <div class="episode-list">
+        <div
+          class="episode-item"
+          v-for="ep in bbcEpisodes"
+          :key="ep.id"
+          :class="{ active: currentEpisode?.id === ep.id }"
+          @click="selectEpisode(ep)"
+        >
+          <div class="ep-title">{{ ep.title }}</div>
+          <div class="ep-title-zh">{{ ep.titleZh }}</div>
+          <van-tag size="mini" :type="ep.difficulty === 'easy' ? 'success' : ep.difficulty === 'medium' ? 'warning' : 'danger'">
+            {{ ep.difficulty === 'easy' ? '简单' : ep.difficulty === 'medium' ? '中等' : '较难' }}
+          </van-tag>
         </div>
       </div>
-    </div>
+    </van-popup>
   </div>
 </template>
 
 <style scoped>
+.english-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f5f7fa;
+}
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px 16px;
+}
+
 .done-banner {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: 8px;
   background: linear-gradient(135deg, #52C41A, #73D13D);
-  color: white;
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--spacing-lg);
-  font-size: var(--font-size-sm);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-top: 12px;
+  font-size: 14px;
   font-weight: 500;
 }
-
-.done-score {
-  margin-left: auto;
-  font-size: var(--font-size-xs);
-}
+.done-score { margin-left: auto; font-size: 12px; }
 
 .action-bar {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-lg);
+  gap: 8px;
+  margin-top: 12px;
   flex-wrap: wrap;
 }
 
-.rate-control {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  margin-left: auto;
+.article-header {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 12px;
+}
+.article-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+.title-zh {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #999;
 }
 
-.rate-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+.sentence-list {
+  margin-top: 12px;
+}
+.sentence-item {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.sentence-item:active { background: #f0f0f0; }
+.sentence-en {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+}
+.sentence-num {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  background: #1989fa;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 11px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.sentence-zh {
+  font-size: 13px;
+  color: #666;
+  margin-top: 6px;
+  padding-left: 30px;
+  line-height: 1.5;
+}
+
+.vocab-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.vocab-section h3 { margin: 0 0 10px; font-size: 15px; }
+.vocab-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.vocab-item {
+  background: #f0f9ff;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  color: #555;
 }
 
 .complete-section {
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-lg);
-  background: var(--color-card);
-  border-radius: var(--radius-md);
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
 }
-
 .score-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-lg);
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #666;
 }
 
-.score-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+.episode-list {
+  max-height: calc(100% - 50px);
+  overflow-y: auto;
 }
-
-.stats-section {
-  margin-top: var(--spacing-xl);
+.episode-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
 }
-
-.section-subtitle {
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  margin-bottom: var(--spacing-md);
+.episode-item.active { background: #e8f4ff; }
+.episode-item:active { background: #f5f5f5; }
+.ep-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-.no-history {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-light);
-  text-align: center;
-  padding: var(--spacing-xl);
+.ep-title-zh {
+  font-size: 12px;
+  color: #999;
+  min-width: 80px;
+  text-align: right;
 }
 </style>

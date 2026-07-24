@@ -177,7 +177,7 @@ export function useCustomers() {
   async function search(query: string) {
     const q = query.toLowerCase()
     return db.customers
-      .filter(c => c.name.toLowerCase().includes(q) || c.company.toLowerCase().includes(q))
+      .filter(c => c.name.toLowerCase().includes(q) || c.machineModel.toLowerCase().includes(q))
       .toArray()
   }
 

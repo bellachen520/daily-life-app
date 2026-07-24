@@ -2,7 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useReadingCheckins, useDailyEvents, useEnglishProgress } from '@/composables/useDB'
-import { englishArticles } from '@/db/seeds'
+import { bbcEpisodes } from '@/db/bbc'
+import BBCPlayer from '@/components/BBCPlayer.vue'
 import CheckinCard from '@/components/CheckinCard.vue'
 import StreakBadge from '@/components/StreakBadge.vue'
 import dayjs from 'dayjs'
@@ -28,8 +29,8 @@ async function loadReading() {
 // 英语打卡状态
 const todayEnglish = ref<any>(null)
 const todayArticle = computed(() => {
-  const dayOfYear = dayjs().dayOfYear()
-  return englishArticles[dayOfYear % englishArticles.length]
+  const doy = dayjs().dayOfYear()
+  return bbcEpisodes[doy % bbcEpisodes.length]
 })
 async function loadEnglish() {
   todayEnglish.value = await engProgress.getByDate(today)
@@ -139,11 +140,12 @@ function goCalendar() {
       </div>
       <div class="article-preview" @click="goEnglish">
         <div class="preview-meta">
-          <span class="preview-topic">{{ todayArticle.topic }}</span>
-          <span class="preview-difficulty">{{ todayArticle.difficulty === 'easy' ? '简单' : todayArticle.difficulty === 'medium' ? '中等' : '困难' }}</span>
+          <span class="preview-topic">{{ todayArticle.titleZh }}</span>
+          <span class="preview-difficulty">{{ todayArticle.difficulty === 'easy' ? '简单' : todayArticle.difficulty === 'medium' ? '中等' : '较难' }}</span>
         </div>
         <h4 class="preview-title">{{ todayArticle.title }}</h4>
-        <p class="preview-excerpt">{{ todayArticle.content.slice(0, 80) }}...</p>
+        <p class="preview-excerpt">{{ todayArticle.sentences[0]?.en || '' }}</p>
+        <BBCPlayer @open="goEnglish" />
         <div v-if="englishDone" class="preview-done">
           <van-icon name="success" color="#52C41A" /> 今日已完成
         </div>
