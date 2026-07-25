@@ -1,10 +1,25 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { bbcEpisodes } from '@/db/bbc'
 import dayjs from 'dayjs'
+import dayOfYear from 'dayjs/plugin/dayOfYear'
+
+dayjs.extend(dayOfYear)
 
 const router = useRouter()
 const today = dayjs().format('YYYY年M月D日 dddd')
+
+// 今日推荐：按天轮换
+const todayArticle = computed(() => {
+  const doy = dayjs().dayOfYear()
+  return bbcEpisodes[doy % bbcEpisodes.length]
+})
+
+// 每日推送池（不包含今日推荐）
+const otherArticles = computed(() => {
+  return bbcEpisodes.filter(ep => ep.id !== todayArticle.value.id)
+})
 
 function goDetail(id: number) {
   router.push(`/life/english/${id}`)
@@ -15,7 +30,7 @@ function goDetail(id: number) {
   <div class="english-list-page">
     <!-- 顶部栏 -->
     <div class="top-bar">
-      <van-icon name="bars" size="20" />
+      <van-icon name="arrow-left" size="20" @click="router.push('/life')" />
       <span class="page-title">英语学习</span>
       <span class="page-date">{{ today }}</span>
     </div>
@@ -32,16 +47,40 @@ function goDetail(id: number) {
         </p>
       </div>
 
-      <!-- 文章列表 -->
+      <!-- 今日推荐 -->
+      <div class="today-banner">
+        <div class="banner-title">
+          <span class="banner-icon">⭐</span>
+          <span>今日推荐</span>
+          <span class="banner-date">{{ dayjs().format('M月D日') }}</span>
+        </div>
+        <div class="banner-card" @click="goDetail(todayArticle.id)">
+          <div class="card-title-row">
+            <h3 class="card-title">{{ todayArticle.title }}</h3>
+            <span class="bbc-tag">BBC</span>
+          </div>
+          <p class="card-subtitle">{{ todayArticle.titleZh }}</p>
+          <div class="card-meta">
+            <span class="meta-item">📝 {{ todayArticle.wordCount }} 词</span>
+            <span class="meta-sep">|</span>
+            <span class="meta-item">⏱ {{ todayArticle.duration }}</span>
+            <span class="meta-sep">|</span>
+            <span class="meta-item">🎯 词汇量 {{ todayArticle.vocabLevel }}</span>
+          </div>
+          <div class="banner-cta">开始盲听 →</div>
+        </div>
+      </div>
+
+      <!-- 全部文章列表 -->
       <div class="list-header">
         <span class="list-bar"></span>
-        <span>共 {{ bbcEpisodes.length }} 篇文章，点选一篇开始盲听</span>
+        <span>全部文章 ({{ otherArticles.length }} 篇)</span>
       </div>
 
       <div class="article-list">
         <div
           class="article-card"
-          v-for="ep in bbcEpisodes"
+          v-for="ep in otherArticles"
           :key="ep.id"
           @click="goDetail(ep.id)"
         >
@@ -56,8 +95,6 @@ function goDetail(id: number) {
             <span class="meta-item">⏱ {{ ep.duration }}</span>
             <span class="meta-sep">|</span>
             <span class="meta-item">🎯 词汇量 {{ ep.vocabLevel }}</span>
-            <span class="meta-sep">|</span>
-            <span class="meta-item listen-count">已听 0 次</span>
           </div>
         </div>
       </div>
@@ -129,6 +166,52 @@ function goDetail(id: number) {
   margin: 0;
 }
 
+/* 今日推荐 */
+.today-banner {
+  margin-bottom: 16px;
+}
+.banner-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ff976a;
+}
+.banner-icon {
+  font-size: 18px;
+}
+.banner-date {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: #999;
+}
+.banner-card {
+  background: linear-gradient(135deg, #fff8e6 0%, #ffeac9 100%);
+  border: 2px solid #ffd591;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.banner-card:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+.banner-cta {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ff976a;
+  padding: 6px 0;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+}
+
 .list-header {
   display: flex;
   align-items: center;
@@ -176,6 +259,9 @@ function goDetail(id: number) {
   font-weight: 600;
   color: #333;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 .bbc-tag {
   font-size: 12px;
@@ -184,6 +270,7 @@ function goDetail(id: number) {
   padding: 2px 8px;
   border-radius: 6px;
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .card-subtitle {
@@ -205,8 +292,5 @@ function goDetail(id: number) {
 .meta-sep {
   font-size: 12px;
   color: #ddd;
-}
-.listen-count {
-  color: #ff976a;
 }
 </style>

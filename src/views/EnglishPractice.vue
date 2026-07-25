@@ -562,18 +562,23 @@ onUnmounted(() => {
 }
 .sentence-content {
   flex: 1;
+  min-width: 0;
 }
 .sentence-en {
   font-size: 15px;
   line-height: 1.7;
   color: #333;
   margin-bottom: 4px;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 .word {
   cursor: pointer;
   transition: all 0.1s;
   border-radius: 2px;
   padding: 0 1px;
+  display: inline-block;
 }
 .word:hover {
   background: #ffeaa7;
@@ -590,12 +595,12 @@ onUnmounted(() => {
 /* 底部播放器 */
 .player-bar {
   position: fixed;
-  bottom: 50px;
+  bottom: 60px;
   left: 0;
   right: 0;
   background: #fff;
   border-top: 1px solid #e8e8e8;
-  padding: 10px 16px 12px;
+  padding: 8px 12px 10px;
   z-index: 100;
   box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
 }
@@ -636,11 +641,11 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 .ctrl-btn {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: 1px solid #d9d9d9;
   background: #fff;
@@ -660,8 +665,8 @@ onUnmounted(() => {
   background: #f6ffed;
 }
 .play-btn {
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
   background: #07c160;
   color: #fff;
   border: none;
